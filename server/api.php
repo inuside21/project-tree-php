@@ -48,21 +48,21 @@
 
         // check
         {
-            if (!isset($_GET['uuname']) || !ValidText($_GET['uuname'], 4, 15))
+            if (!isset($_GET['tUname']) || !ValidText($_GET['tUname'], 4, 15))
             {
-                JSONSet2("error", "Login Failed", "Invalid username/password");
+                JSONSet2("error", "Login Failed", "Invalid username/password 1");
             }
 
-            if (!isset($_GET['upword']) || !ValidText($_GET['upword'], 4, 15))
+            if (!isset($_GET['tPword']) || !ValidText($_GET['tPword'], 4, 15))
             {
-                JSONSet2("error", "Login Failed", "Invalid username/password");
+                JSONSet2("error", "Login Failed", "Invalid username/password 2");
             }
         }
 
         // check
         {
             $stmt = $connection->prepare("SELECT * FROM user_tbl WHERE binary user_uname = ? and binary user_pword = ?");
-            $stmt->bind_param("ss", $_GET['uuname'], $_GET['upword']);
+            $stmt->bind_param("ss", $_GET['tUname'], $_GET['tPword']);
             $stmt->execute();
             $result = $stmt->get_result();
             if ($result->num_rows > 0)
@@ -75,7 +75,7 @@
             }
             else
             {
-                JSONSet2("error", "Login Failed", "Invalid username/password");
+                JSONSet2("error", "Login Failed", "Invalid username/password 3");
             }
         }
         
@@ -101,19 +101,29 @@
 
         // check
         {
-            if (!isset($_GET['uuname']) || !ValidText($_GET['uuname']))
+            if (!isset($_GET['tUname']) || !ValidText($_GET['tUname']))
             {
                 JSONSet2("error", "Register Failed", "Invalid entry of length / symbols 1");
             }
 
-            if (!isset($_GET['upword']) || !ValidText($_GET['upword']))
+            if (!isset($_GET['tPword']) || !ValidText($_GET['tPword']))
             {
                 JSONSet2("error", "Register Failed", "Invalid entry of length / symbols 2");
             }
 
-            if (!isset($_GET['ufname']) || !ValidText($_GET['ufname']))
+            if (!isset($_GET['tFname']) || !ValidText2($_GET['tFname']))
             {
                 JSONSet2("error", "Register Failed", "Invalid entry of length / symbols 3");
+            }
+
+            if (!isset($_GET['tEmail']) || !ValidText($_GET['tEmail']))
+            {
+                JSONSet2("error", "Register Failed", "Invalid entry of length / symbols 4");
+            }
+
+            if (!isset($_GET['tContact']) || !ValidText($_GET['tContact']))
+            {
+                JSONSet2("error", "Register Failed", "Invalid entry of length / symbols 5");
             }
         }
 
@@ -136,22 +146,26 @@
                                             (
                                                 user_uname,
                                                 user_pword,
-                                                user_fname
+                                                user_fname,
+                                                user_phone,
+                                                user_email
                                             )
                                         VALUES
                                             (
                                                 ?,
                                                 ?,
+                                                ?,
+                                                ?,
                                                 ?
                                             )
             ");
-            $stmt->bind_param("sss", $_GET['uuname'], $_GET['upword'], $_GET['ufname']);
+            $stmt->bind_param("sssss", $_GET['tUname'], $_GET['tPword'], $_GET['tFname'], $_GET['tContact'], $_GET['tEmail']);
             $stmt->execute();
             $getId = $connection->insert_id;
         }
 
         //
-        JSONSet2("ok", "Registration Complete", "Please login to continue");
+        JSONSet2("ok", "Register Complete", "Please login to continue");
     }
 
     // user - view
@@ -162,7 +176,7 @@
 
         // check
         {
-            if (!isset($_GET['utoken']) || !ValidText($_GET['utoken']))
+            if (!isset($_GET['tToken']) || !ValidText($_GET['tToken']))
             {
                 JSONSet2("error", "View Failed", "Invalid entry of length / symbols 1");
             }
@@ -172,23 +186,14 @@
         {
             // exist?
             $stmt = $connection->prepare("SELECT * FROM user_tbl WHERE binary user_token = ?");
-            $stmt->bind_param("s", $_GET['utoken']);
+            $stmt->bind_param("s", $_GET['tToken']);
             $stmt->execute();
             $result = $stmt->get_result();
             if ($result->num_rows > 0)
             {
                 while ($obj = $result->fetch_object()) 
                 {
-                    if ($obj->user_admin == "0")
-                    {
-                        $obj->user_admintext = "User";
-                    }
-
-                    if ($obj->user_admin == "1")
-                    {
-                        $obj->user_admintext = "Admininstrator";
-                    }
-
+                    $obj->userpic = "https://martorenzo.click/project/tree/server/image/" . $obj->user_image . ".png";
                     $userData = $obj;
                 }
             }
@@ -199,178 +204,39 @@
             }
         }
 
-        // Claim
-        {
-            $userData->user_claimtotal = 0;
-
-            $stmt = $connection->prepare("SELECT COUNT(*) as totalClaim FROM withdraw_tbl WHERE with_user = ?");
-            $stmt->bind_param("i", $userData->id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            while ($obj = $result->fetch_object()) 
-            {
-                $userData->user_claimtotal = $obj->totalClaim;
-            }
-        }
-
-        // Codes
-        {
-            $userData->user_codetotal = 0;
-
-            $stmt = $connection->prepare("SELECT COUNT(*) as totalCodes FROM code_tbl WHERE code_user = ?");
-            $stmt->bind_param("i", $userData->id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            while ($obj = $result->fetch_object()) 
-            {
-                $userData->user_codetotal = $obj->totalCodes;
-            }
-        }
-
         //
         JSONSet2("ok", "", "", $userData);
     }
 
-    // user - code add
-    if ($_GET['mode'] == "usercodeadd")
+    // insight - view
+    if ($_GET['mode'] == "insightview")
     {
-        $userData = new stdClass();
-        $codeData = new stdClass();
-        $codeNew = GUID();
-
-        // check
-        {
-            if (!isset($_GET['uid']) || !ValidText($_GET['uid'], 1, 15))
-            {
-                JSONSet2("error", "Code Add Failed", "Invalid User ID 1");
-            }
-
-            if (!isset($_GET['ccode']) || !ValidText($_GET['ccode'], 4, 15))
-            {
-                JSONSet2("error", "Code Add Failed", "Invalid code 1");
-            }
-        }
-
-        // check
-        {
-            // user
-            $stmt = $connection->prepare("SELECT * FROM user_tbl WHERE id = ?");
-            $stmt->bind_param("i", $_GET['uid']);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($result->num_rows > 0)
-            {
-                while ($obj = $result->fetch_object()) 
-                {
-                    //
-                    $userData = $obj;
-                }
-            }
-            else
-            {
-                JSONSet2("error", "Code Add Failed", "Invalid User ID 2");
-            }
-
-            // code
-            $stmt = $connection->prepare("SELECT * FROM code_tbl WHERE binary code_id = ?");
-            $stmt->bind_param("s", $_GET['ccode']);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            if ($result->num_rows > 0)
-            {
-                while ($obj = $result->fetch_object()) 
-                {
-                    if ($obj->code_taken != "0")
-                    {
-                        JSONSet2("error", "Code Add Failed", "Code already used");
-                    }
-
-                    //
-                    $codeData = $obj;
-                }
-            }
-            else
-            {
-                JSONSet2("error", "Code Add Failed", "Invalid code 2");
-            }
-        }
-
-        // user
-        {
-            $stmt = $connection->prepare("  UPDATE user_tbl SET
-                                                user_points = user_points + ?,
-                                                user_pointstotal = user_pointstotal + ?
-                                            WHERE
-                                                id = ?
-            ");
-            $stmt->bind_param("iii", $codeData->code_points, $codeData->code_points, $userData->id);
-            $stmt->execute();
-        }
-
-        // code
-        {
-            $stmt = $connection->prepare("  UPDATE code_tbl SET
-                                                code_taken = 1,
-                                                code_user = ?
-                                            WHERE
-                                                id = ?
-            ");
-            $stmt->bind_param("ii", $userData->id, $codeData->id);
-            $stmt->execute();
-        }
-
         //
-        JSONSet2("ok", "Code Add Success", "New points added to your balance");
-    }
+        $insightData = new stdClass();
 
-    // user - withdraw add
-    if ($_GET['mode'] == "userwithdrawadd")
-    {
-        $userData = new stdClass();
-
-        // check
+        // check DB
         {
-            if (!isset($_GET['uid']) || !ValidText($_GET['uid'], 1, 15))
-            {
-                JSONSet2("error", "Reward Failed", "Invalid User ID 1");
-            }
-
-            if (!isset($_GET['wpoints']) || !ValidText($_GET['wpoints'], 1, 15) || !is_numeric($_GET['wpoints']) || (int)$_GET['wpoints'] < 1)
-            {
-                JSONSet2("error", "Reward Failed", "Invalid points 1");
-            }
-        }
-
-        // check
-        {
-            $pointsNeed = (int)$_GET['wpoints'] * 200;
-
-
-            // user
-            $stmt = $connection->prepare("SELECT * FROM user_tbl WHERE id = ?");
-            $stmt->bind_param("i", $_GET['uid']);
+            // log
+            $stmt = $connection->prepare("SELECT * FROM dev_log ORDER BY id DESC LIMIT 4");
             $stmt->execute();
             $result = $stmt->get_result();
             if ($result->num_rows > 0)
             {
                 while ($obj = $result->fetch_object()) 
                 {
-                    //
-                    if ((int)$obj->user_points < $pointsNeed)
-                    {
-                        JSONSet2("error", "Reward Failed", "Invalid points 2");
-                    }
-
-                    //
-                    $userData = $obj;
+                    $insightData->report = $obj;
                 }
             }
             else
-            {
-                JSONSet2("error", "Reward Failed", "Invalid User ID 2");
+            {   
+                $noData = new stdClass();
+                $noData->id = "1";
+                $noData->dev_date = "";
+                $noData->dev_message = "No logs found";
+                $insightData->report[] = $noData;
             }
 
-            // device
+            // tree
             $stmt = $connection->prepare("SELECT * FROM dev_tbl");
             $stmt->execute();
             $result = $stmt->get_result();
@@ -378,257 +244,301 @@
             {
                 while ($obj = $result->fetch_object()) 
                 {
-                    //
-                    if ($obj->dev_rewardongoing != "0")
-                    {
-                        JSONSet2("error", "Reward Failed", "Device is currently dispensing");
-                    }
-
-                    //
-                    if ($obj->dev_pointsongoing != "0")
-                    {
-                        JSONSet2("error", "Reward Failed", "Device is currently in-use");
-                    }
-
-                    //
-                    if ((int)$obj->dev_reward != 0)
-                    {
-                        JSONSet2("error", "Reward Failed", "Please press the button in device to dispense");
-                    }
+                    $obj->coordinate = new stdClass();
+                    $obj->coordinate->latitude = (float)$obj->dev_treegmaplat;
+                    $obj->coordinate->longitude = (float)$obj->dev_treegmaplong;
+                    $insightData->tree[] = $obj;
                 }
             }
         }
 
-        // user
+        //
+        JSONSet2("ok", "", "", $insightData);
+    }
+
+    // tree - view
+    if ($_GET['mode'] == "treeview")
+    {
+        //
+        $treeData = new stdClass();
+
+        // check
         {
-            $stmt = $connection->prepare("  UPDATE user_tbl SET
-                                                user_points = user_points - ?
+            if (!isset($_GET['treeId']))
+            {
+                JSONSet2("error", "View Failed", "Invalid ID");
+            }
+        }
+
+        // check DB
+        {
+            // tree
+            $stmt = $connection->prepare("SELECT * FROM dev_tbl where id = ?");
+            $stmt->bind_param("i", $_GET['treeId']);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0)
+            {
+                while ($obj = $result->fetch_object()) 
+                {
+                    $obj->coordinate = new stdClass();
+                    $obj->coordinate->latitude = (float)$obj->dev_treegmaplat;
+                    $obj->coordinate->longitude = (float)$obj->dev_treegmaplong;
+                    $treeData = $obj;
+                }
+            }
+        }
+
+        //
+        JSONSet2("ok", "", "s", $treeData);
+    }
+
+    
+
+    // fire - view
+    if ($_GET['mode'] == "fireview")
+    {
+        //
+        $insightData = new stdClass();
+
+        // check DB
+        {
+            // log
+            $stmt = $connection->prepare("SELECT * FROM dev_log WHERE dev_message LIKE '%Fire%' ORDER BY id DESC LIMIT 4");
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0)
+            {
+                while ($obj = $result->fetch_object()) 
+                {
+                    $insightData->report = $obj;
+                }
+            }
+            else
+            {   
+                $noData = new stdClass();
+                $noData->id = "1";
+                $noData->dev_date = "";
+                $noData->dev_message = "No logs found";
+                $insightData->report[] = $noData;
+            }
+
+            // tree
+            $stmt = $connection->prepare("SELECT * FROM dev_tbl");
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0)
+            {
+                while ($obj = $result->fetch_object()) 
+                {
+                    $obj->coordinate = new stdClass();
+                    $obj->coordinate->latitude = (float)$obj->dev_treegmaplat;
+                    $obj->coordinate->longitude = (float)$obj->dev_treegmaplong;
+                    $insightData->tree[] = $obj;
+                }
+            }
+        }
+
+        //
+        JSONSet2("ok", "", "", $insightData);
+    }
+
+    // fall - view
+    if ($_GET['mode'] == "fallview")
+    {
+        //
+        $insightData = new stdClass();
+
+        // check DB
+        {
+            // log
+            $stmt = $connection->prepare("SELECT * FROM dev_log WHERE dev_message LIKE '%Fall%' ORDER BY id DESC LIMIT 4");
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0)
+            {
+                while ($obj = $result->fetch_object()) 
+                {
+                    $insightData->report = $obj;
+                }
+            }
+            else
+            {   
+                $noData = new stdClass();
+                $noData->id = "1";
+                $noData->dev_date = "";
+                $noData->dev_message = "No logs found";
+                $insightData->report[] = $noData;
+            }
+
+            // tree
+            $stmt = $connection->prepare("SELECT * FROM dev_tbl");
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0)
+            {
+                while ($obj = $result->fetch_object()) 
+                {
+                    $obj->coordinate = new stdClass();
+                    $obj->coordinate->latitude = (float)$obj->dev_treegmaplat;
+                    $obj->coordinate->longitude = (float)$obj->dev_treegmaplong;
+                    $insightData->tree[] = $obj;
+                }
+            }
+        }
+
+        //
+        JSONSet2("ok", "", "", $insightData);
+    }
+
+    // maintenance - view
+    if ($_GET['mode'] == "maintenanceview")
+    {
+        //
+        $treeData = new stdClass();
+
+        // check DB
+        {
+            // tree
+            $stmt = $connection->prepare("SELECT * FROM dev_tbl");
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0)
+            {
+                while ($obj = $result->fetch_object()) 
+                {
+                    $obj->coordinate = new stdClass();
+                    $obj->coordinate->latitude = (float)$obj->dev_treegmaplat;
+                    $obj->coordinate->longitude = (float)$obj->dev_treegmaplong;
+                    $obj->batteryicon = "https://martorenzo.click/project/tree/server/image/bat" . $obj->dev_battery . ".png";
+                    $treeData = $obj;
+                }
+            }
+        }
+
+        //
+        JSONSet2("ok", "", "", $treeData);
+    }
+
+
+
+
+
+
+    // ards - dev set
+    if ($_GET['mode'] == "devset")
+    {
+        //
+        $treeData = new stdClass();
+
+        // check
+        {
+            if (!isset($_GET['devgyx']))
+            {
+                JSONSet2("error", "Update Failed", "Invalid 1");
+            }
+
+            if (!isset($_GET['devgyy']))
+            {
+                JSONSet2("error", "Update Failed", "Invalid 2");
+            }
+
+            if (!isset($_GET['devgyz']))
+            {
+                JSONSet2("error", "Update Failed", "Invalid 3");
+            }
+
+            if (!isset($_GET['devfire']))
+            {
+                JSONSet2("error", "Update Failed", "Invalid 4");
+            }
+
+            if (!isset($_GET['devbat']))
+            {
+                JSONSet2("error", "Update Failed", "Invalid 5");
+            }
+
+            if (!isset($_GET['devid']))
+            {
+                JSONSet2("error", "Update Failed", "Invalid 6");
+            }
+        }
+
+        // check DB
+        {
+            // tree
+            $stmt = $connection->prepare("SELECT * FROM dev_tbl where id = ?");
+            $stmt->bind_param("i", $_GET['devid']);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0)
+            {
+                while ($obj = $result->fetch_object()) 
+                {
+                    $treeData = $obj;
+                }
+            }
+        }
+
+        // 
+        {
+            $stmt = $connection->prepare("  UPDATE dev_tbl SET
+                                                dev_gy_x = ?,
+                                                dev_gy_y = ?,
+                                                dev_gy_z = ?,
+                                                dev_fire = ?,
+                                                dev_battery = ?
                                             WHERE
                                                 id = ?
             ");
-            $stmt->bind_param("ii", $pointsNeed, $userData->id);
+            $stmt->bind_param("iiiiii", $_GET['devgyx'], $_GET['devgyy'], $_GET['devgyz'], $_GET['devfire'], $_GET['devbat'], $_GET['devid']);
             $stmt->execute();
         }
 
-        // withdraw
+        // log
         {
-            $stmt = $connection->prepare("INSERT INTO withdraw_tbl
-                                            (
-                                                with_date,
-                                                with_points,
-                                                with_user
-                                            )
-                                        VALUES
-                                            (
-                                                ?,
-                                                ?,
-                                                ?
-                                            )
-            ");
-            $stmt->bind_param("sii", $dateResult, $pointsNeed, $userData->id);
-            $stmt->execute();
-        }
-
-        // device
-        {
-            $stmt = $connection->prepare("  UPDATE dev_tbl SET
-                                                dev_reward = dev_reward + ?
-            ");
-            $stmt->bind_param("i", $pointsNeed);
-            $stmt->execute();
-        }
-
-        //
-        JSONSet2("ok", "Reward Success", "Please wait for the device to dispense");
-    }
-
-
-
-
-
-    // ards - dev reward status
-    if ($_GET['mode'] == "devcodestatus")
-    {
-        $deviceData = new stdClass();
-
-        // device
-        {
-            //
-            $stmt = $connection->prepare("SELECT * FROM dev_tbl");
-            $stmt->execute();
-            $result = $stmt->get_result();
-            while ($obj = $result->fetch_object()) 
+            // fall
+            if ((float)$_GET['devgyx'] >= (float)$treeData->dev_gy_xset || (float)$_GET['devgyy'] >= (float)$treeData->dev_gy_yset || (float)$_GET['devgyz'] >= (float)$treeData->dev_gy_zset)
             {
-                //
-                $deviceData = $obj;
+                $stmt = $connection->prepare("  INSERT INTO dev_log
+                                                    (
+                                                        dev_id,
+                                                        dev_date,
+                                                        dev_message
+                                                    )
+                                                VALUES
+                                                    (
+                                                        ?,
+                                                        ?,
+                                                        ?
+                                                    )
+                ");
+                $stmt->bind_param("iss", $treeData->id, $dateResult, "Fall has been detected " . $treeData->dev_name);
+                $stmt->execute();
             }
 
-            //
-            $stmt = $connection->prepare("  UPDATE dev_tbl SET
-                                                dev_code = ''
-            ");
-            $stmt->execute();
-        }
-
-        //
-        echo $deviceData->dev_code;
-    }
-
-    // ards - dev reward status
-    if ($_GET['mode'] == "devrewardstatus")
-    {
-        $deviceData = new stdClass();
-
-        // device
-        {
-            //
-            $stmt = $connection->prepare("SELECT * FROM dev_tbl");
-            $stmt->execute();
-            $result = $stmt->get_result();
-            while ($obj = $result->fetch_object()) 
+            // fire
+            if ($_GET['devfire'] == "1")
             {
-                //
-                $deviceData = $obj;
+                $stmt = $connection->prepare("  INSERT INTO dev_log
+                                                    (
+                                                        dev_id,
+                                                        dev_date,
+                                                        dev_message
+                                                    )
+                                                VALUES
+                                                    (
+                                                        ?,
+                                                        ?,
+                                                        ?
+                                                    )
+                ");
+                $stmt->bind_param("iss", $treeData->id, $dateResult, "Fire has been detected " . $treeData->dev_name);
+                $stmt->execute();
             }
-
-            //
-            $stmt = $connection->prepare("  UPDATE dev_tbl SET
-                                                dev_reward = 0
-            ");
-            $stmt->execute();
-        }
-
-        //
-        echo $deviceData->dev_reward;
-    }
-
-    // ards - reward set
-    if ($_GET['mode'] == "devrewardset")
-    {
-        // check
-        {
-            if (!isset($_GET['cpoints']) || !ValidText($_GET['cpoints'], 1, 15) || !is_numeric($_GET['cpoints']) || (int)$_GET['cpoints'] < 1)
-            {
-                //JSONSet2("error", "Points Set Failed", "Invalid points: " . $_GET['cpoints']);
-            }
-        }
-
-        // device
-        {
-            $stmt = $connection->prepare("  UPDATE dev_tbl SET
-                                                dev_reward = ?
-            ");
-            $stmt->bind_param("s", $_GET['cpoints']);
-            $stmt->execute();
-        }
-    }
-
-    // ards - code set
-    if ($_GET['mode'] == "devcodeset")
-    {
-        $codeNew = GUID();
-
-        // check
-        {
-            if (!isset($_GET['cpoints']))
-            {
-                JSONSet2("error", "Code Failed 1", "Invalid points: " . $_GET['cpoints']);
-            }
-
-            if (!ValidText($_GET['cpoints'], 1, 15))
-            {
-                JSONSet2("error", "Code Failed 2", "Invalid points: " . $_GET['cpoints']);
-            }
-
-            if (!is_numeric($_GET['cpoints']))
-            {
-                JSONSet2("error", "Code Failed 3", "Invalid points: " . $_GET['cpoints']);
-            }
-
-            if ((int)$_GET['cpoints'] < 1)
-            {
-                JSONSet2("error", "Code Failed 4", "Invalid points: " . $_GET['cpoints']);
-            }
-        }
-
-        // code
-        {
-            $stmt = $connection->prepare("INSERT INTO code_tbl
-                                            (
-                                                code_id,
-                                                code_date,
-                                                code_points
-                                            )
-                                        VALUES
-                                            (
-                                                ?,
-                                                ?,
-                                                ?
-                                            )
-            ");
-            $stmt->bind_param("ssi", $codeNew, $dateResult, $_GET['cpoints']);
-            $stmt->execute();
-        }
-
-        // device
-        {
-            $stmt = $connection->prepare("  UPDATE dev_tbl SET
-                                                dev_reward = 0,
-                                                dev_code = ?
-            ");
-            $stmt->bind_param("s", $codeNew);
-            $stmt->execute();
         }
 
         echo "OK1";
-    }
-
-    // ards - inuse reward set
-    if ($_GET['mode'] == "devinuserewardset")
-    {
-        // device
-        {
-            $stmt = $connection->prepare("  UPDATE dev_tbl SET
-                                                dev_rewardongoing = 1
-            ");
-            $stmt->execute();
-        }
-    }
-
-    // ards - inuse points set
-    if ($_GET['mode'] == "devinusepointsset")
-    {
-        // device
-        {
-            $stmt = $connection->prepare("  UPDATE dev_tbl SET
-                                                dev_pointsongoing = 1
-            ");
-            $stmt->execute();
-        }
-    }
-
-    // ards - inuse reward off set
-    if ($_GET['mode'] == "devinuserewardoffset")
-    {
-        // device
-        {
-            $stmt = $connection->prepare("  UPDATE dev_tbl SET
-                                                dev_rewardongoing = 0
-            ");
-            $stmt->execute();
-        }
-    }
-
-    // ards - inuse points off set
-    if ($_GET['mode'] == "devinusepointsoffset")
-    {
-        // device
-        {
-            $stmt = $connection->prepare("  UPDATE dev_tbl SET
-                                                dev_pointsongoing = 0
-            ");
-            $stmt->execute();
-        }
     }
 
 
@@ -720,6 +630,40 @@
         {
             $isValid = false;
         }
+
+        // all space
+        if (ctype_space($text))
+        {
+            $isValid = false;
+        }   
+
+        // min
+        if (strlen($text) < $minText)
+        {
+            $isValid = false;
+        }
+
+        // max
+        if (strlen($text) > $maxText)
+        {
+            $isValid = false;
+        }
+
+        /*
+        // character?
+        if (strpos($text, '#') !== false || strpos($text, ',') !== false || strpos($text, '|') !== false || strpos($text, '~') !== false || strpos($text, '!') !== false || strpos($text, '+') !== false || strpos($text, '/') !== false || strpos($text, '\\') !== false || strpos($text, '*') !== false || strpos($text, '&') !== false || strpos($text, '%') !== false || strpos($text, '^') !== false) 
+        {
+            $isValid = false;
+        }
+        */
+
+        return $isValid;
+    }
+
+    // Names?
+    function ValidText2($text, $minText = 4, $maxText = 500)
+    {
+        $isValid = true;
 
         // all space
         if (ctype_space($text))

@@ -3,7 +3,7 @@
     // database
     // =========================================================
     // Declare
-    $connection = mysqli_connect("localhost","u684904720_smartbindb","~Orenzo0912","u684904720_smartbindb");  
+    $connection = mysqli_connect("localhost","u684904720_treedb","~Orenzo0912","u684904720_treedb");  
 
     // Date
     date_default_timezone_set("Asia/Manila");
