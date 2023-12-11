@@ -224,7 +224,7 @@
             {
                 while ($obj = $result->fetch_object()) 
                 {
-                    $insightData->report = $obj;
+                    $insightData->report[] = $obj;
                 }
             }
             else
@@ -311,7 +311,7 @@
             {
                 while ($obj = $result->fetch_object()) 
                 {
-                    $insightData->report = $obj;
+                    $insightData->report[] = $obj;
                 }
             }
             else
@@ -359,7 +359,55 @@
             {
                 while ($obj = $result->fetch_object()) 
                 {
-                    $insightData->report = $obj;
+                    $insightData->report[] = $obj;
+                }
+            }
+            else
+            {   
+                $noData = new stdClass();
+                $noData->id = "1";
+                $noData->dev_date = "";
+                $noData->dev_message = "No logs found";
+                $insightData->report[] = $noData;
+            }
+
+            // tree
+            $stmt = $connection->prepare("SELECT * FROM dev_tbl");
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0)
+            {
+                while ($obj = $result->fetch_object()) 
+                {
+                    $obj->coordinate = new stdClass();
+                    $obj->coordinate->latitude = (float)$obj->dev_treegmaplat;
+                    $obj->coordinate->longitude = (float)$obj->dev_treegmaplong;
+                    $insightData->tree[] = $obj;
+                }
+            }
+        }
+
+        //
+        JSONSet2("ok", "", "", $insightData);
+    }
+
+    // history - view
+    if ($_GET['mode'] == "historyview")
+    {
+        //
+        $insightData = new stdClass();
+
+        // check DB
+        {
+            // log
+            $stmt = $connection->prepare("SELECT * FROM dev_log ORDER BY id DESC LIMIT 100");
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows > 0)
+            {
+                while ($obj = $result->fetch_object()) 
+                {
+                    $insightData->report[] = $obj;
                 }
             }
             else
@@ -448,19 +496,29 @@
                 JSONSet2("error", "Update Failed", "Invalid 3");
             }
 
-            if (!isset($_GET['devfire']))
+            if (!isset($_GET['devlat']))
             {
                 JSONSet2("error", "Update Failed", "Invalid 4");
             }
 
-            if (!isset($_GET['devbat']))
+            if (!isset($_GET['devlong']))
             {
                 JSONSet2("error", "Update Failed", "Invalid 5");
             }
 
-            if (!isset($_GET['devid']))
+            if (!isset($_GET['devfire']))
             {
                 JSONSet2("error", "Update Failed", "Invalid 6");
+            }
+
+            if (!isset($_GET['devbat']))
+            {
+                JSONSet2("error", "Update Failed", "Invalid 7");
+            }
+
+            if (!isset($_GET['devid']))
+            {
+                JSONSet2("error", "Update Failed", "Invalid 8");
             }
         }
 
@@ -486,20 +544,41 @@
                                                 dev_gy_x = ?,
                                                 dev_gy_y = ?,
                                                 dev_gy_z = ?,
+                                                dev_treegmaplat = ?,
+                                                dev_treegmaplong = ?,
                                                 dev_fire = ?,
                                                 dev_battery = ?
                                             WHERE
                                                 id = ?
             ");
-            $stmt->bind_param("iiiiii", $_GET['devgyx'], $_GET['devgyy'], $_GET['devgyz'], $_GET['devfire'], $_GET['devbat'], $_GET['devid']);
+            $stmt->bind_param("dddssiii", $_GET['devgyx'], $_GET['devgyy'], $_GET['devgyz'], $_GET['devlat'], $_GET['devlong'], $_GET['devfire'], $_GET['devbat'], $_GET['devid']);
             $stmt->execute();
         }
 
         // log
         {
-            // fall
-            if ((float)$_GET['devgyx'] >= (float)$treeData->dev_gy_xset || (float)$_GET['devgyy'] >= (float)$treeData->dev_gy_yset || (float)$_GET['devgyz'] >= (float)$treeData->dev_gy_zset)
+            //
+            $isFall = false;
+
+            if ((float)$_GET['devgyx'] >= 5 || (float)$_GET['devgyx'] <= -5)
             {
+                $isFall = true;
+            }
+
+            if ((float)$_GET['devgyy'] >= 5 || (float)$_GET['devgyy'] <= -5)
+            {
+                $isFall = true;
+            }
+
+            if ((float)$_GET['devgyz'] >= 15 || (float)$_GET['devgyz'] <= 5)
+            {
+                $isFall = true;
+            }
+
+            // fall
+            if ($isFall)
+            {
+                $message = "Fall has been detected " . $treeData->dev_name;
                 $stmt = $connection->prepare("  INSERT INTO dev_log
                                                     (
                                                         dev_id,
@@ -513,13 +592,14 @@
                                                         ?
                                                     )
                 ");
-                $stmt->bind_param("iss", $treeData->id, $dateResult, "Fall has been detected " . $treeData->dev_name);
+                $stmt->bind_param("iss", $treeData->id, $dateResult, $message);
                 $stmt->execute();
             }
 
             // fire
-            if ($_GET['devfire'] == "1")
+            if ((int)$_GET['devfire'] < 500)
             {
+                $message = "Fire has been detected " . $treeData->dev_name;
                 $stmt = $connection->prepare("  INSERT INTO dev_log
                                                     (
                                                         dev_id,
@@ -533,7 +613,7 @@
                                                         ?
                                                     )
                 ");
-                $stmt->bind_param("iss", $treeData->id, $dateResult, "Fire has been detected " . $treeData->dev_name);
+                $stmt->bind_param("iss", $treeData->id, $dateResult, $message);
                 $stmt->execute();
             }
         }
