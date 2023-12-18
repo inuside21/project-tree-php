@@ -293,8 +293,6 @@
         JSONSet2("ok", "", "s", $treeData);
     }
 
-    
-
     // fire - view
     if ($_GET['mode'] == "fireview")
     {
@@ -336,6 +334,20 @@
                     $obj->coordinate->longitude = (float)$obj->dev_treegmaplong;
                     $insightData->tree[] = $obj;
                 }
+            }
+        }
+
+        // user
+        {
+            if (isset($_GET['tToken']) && isset($_GET['tLogFire']))
+            {
+                $stmt = $connection->prepare("  UPDATE user_tbl SET
+                                                    user_logfire = 0
+                                                WHERE
+                                                    user_token = ?
+                ");
+                $stmt->bind_param("s", $_GET['tToken']);
+                $stmt->execute();
             }
         }
 
@@ -387,6 +399,20 @@
             }
         }
 
+        // user
+        {
+            if (isset($_GET['tToken']) && isset($_GET['tLogFall']))
+            {
+                $stmt = $connection->prepare("  UPDATE user_tbl SET
+                                                    user_logfall = 0
+                                                WHERE
+                                                    user_token = ?
+                ");
+                $stmt->bind_param("s", $_GET['tToken']);
+                $stmt->execute();
+            }
+        }
+
         //
         JSONSet2("ok", "", "", $insightData);
     }
@@ -432,6 +458,20 @@
                     $obj->coordinate->longitude = (float)$obj->dev_treegmaplong;
                     $insightData->tree[] = $obj;
                 }
+            }
+        }
+
+        // user
+        {
+            if (isset($_GET['tToken']) && isset($_GET['tLogMain']))
+            {
+                $stmt = $connection->prepare("  UPDATE user_tbl SET
+                                                    user_logmain = 0
+                                                WHERE
+                                                    user_token = ?
+                ");
+                $stmt->bind_param("s", $_GET['tToken']);
+                $stmt->execute();
             }
         }
 
@@ -578,6 +618,7 @@
             // fall
             if ($isFall)
             {
+                //
                 $message = "Fall has been detected " . $treeData->dev_name;
                 $stmt = $connection->prepare("  INSERT INTO dev_log
                                                     (
@@ -594,11 +635,19 @@
                 ");
                 $stmt->bind_param("iss", $treeData->id, $dateResult, $message);
                 $stmt->execute();
+
+                // log
+                $stmt = $connection->prepare("  UPDATE user_tbl SET
+                                                    user_logfall = user_logfall + 1,
+                                                    user_logmain = user_logmain + 1
+                ");
+                $stmt->execute();
             }
 
             // fire
             if ((int)$_GET['devfire'] < 500)
             {
+                //
                 $message = "Fire has been detected " . $treeData->dev_name;
                 $stmt = $connection->prepare("  INSERT INTO dev_log
                                                     (
@@ -614,6 +663,13 @@
                                                     )
                 ");
                 $stmt->bind_param("iss", $treeData->id, $dateResult, $message);
+                $stmt->execute();
+
+                //
+                $stmt = $connection->prepare("  UPDATE user_tbl SET
+                                                    user_logfire = user_logfire + 1,
+                                                    user_logmain = user_logmain + 1
+                ");
                 $stmt->execute();
             }
         }
