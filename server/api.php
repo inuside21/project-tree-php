@@ -202,6 +202,11 @@
                 //
                 JSONSet2("error", "View Failed", "Relogin to continue");
             }
+            
+            // update
+            $stmt = $connection->prepare("UPDATE user_tbl SET ctr = ctr + 1 WHERE id = ?");
+            $stmt->bind_param("i", $userData->id);
+            $stmt->execute();
         }
 
         //
